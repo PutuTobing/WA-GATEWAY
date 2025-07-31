@@ -1,6 +1,12 @@
-# Backend
+# Backend: ignore dependencies & cache
 server/node_modules/
+server/.wwebjs_cache/
 
-# Frontend
+# Frontend: ignore dependencies & build
 frontend/node_modules/
 frontend/.next/
+
+# Opsional: file env
+server/.env
+frontend/.env.local
+frontend/.env.production
