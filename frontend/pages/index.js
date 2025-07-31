@@ -202,7 +202,11 @@ function AccountManagementAdmin({ user }) {
     const handleAction = async (id, action) => {
         setLoading(true);
         try {
-            const endpoint = action === 'accept' ? '/api/users/approve' : '/api/users/discard';
+            let endpoint = '';
+            if (action === 'accept') endpoint = '/api/users/approve';
+            else if (action === 'discard') endpoint = '/api/users/discard';
+            else if (action === 'restore') endpoint = '/api/users/restore';
+            if (!endpoint) throw new Error('Aksi tidak valid');
             const res = await fetch(`http://172.16.31.14:3001${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
@@ -252,13 +256,14 @@ function AccountManagementAdmin({ user }) {
             {notif && (
                 <div className={`mb-4 px-4 py-2 rounded text-white ${notif.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notif.text}</div>
             )}
-            <div className="glass-card p-6 rounded-2xl mb-8">
+            <div className="glass-card p-6 rounded-2xl mb-8 w-full max-w-2xl mx-auto">
                 <h3 className="text-lg font-semibold mb-4">Daftar Akun Mendaftar</h3>
                 <table className="w-full text-left border">
                     <thead>
                         <tr className="bg-gray-800 text-gray-300">
                             <th className="px-3 py-2">Email</th>
                             <th className="px-3 py-2">Status</th>
+                            <th className="px-3 py-2">Password</th>
                             <th className="px-3 py-2">Aksi</th>
                         </tr>
                     </thead>
@@ -268,43 +273,32 @@ function AccountManagementAdmin({ user }) {
                                 <td className="px-3 py-2">{acc.email}</td>
                                 <td className="px-3 py-2">
                                     {acc.status === 'pending' ? <span className="text-yellow-400">Menunggu</span>
+                                        : acc.status === 'approved' ? <span className="text-green-400">Aktif</span>
                                         : acc.status === 'active' ? <span className="text-green-400">Aktif</span>
                                         : acc.status === 'stopped' ? <span className="text-gray-400">Stopped</span>
                                         : <span className="text-red-400">Ditolak</span>}
                                 </td>
-                                <td className="px-3 py-2 space-x-2 flex flex-wrap">
-                                    {/* Accept & Discard hanya untuk pending */}
-                                    {acc.status === 'pending' && (
-                                        <>
-                                            <button title="Terima Akun" className="bg-green-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'accept', user: acc })}>
-                                                <span className="mr-1"><IconCustom name="accept" className="w-6 h-6" /></span> Accept
+                                <td className="px-3 py-2">
+                                    {(acc.status === 'active' || acc.status === 'approved') && (
+                                        <div className="flex flex-col items-start space-y-2 mt-2">
+                                            <button title="Ganti Password" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center transition-transform active:scale-95 shadow-sm" onClick={() => setSelectedUser(acc)}>
+                                                <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-7V7a6 6 0 10-12 0v3a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2v-7a2 2 0 00-2-2zm-6-7a4 4 0 014 4v3H8V7a4 4 0 014-4z" /></svg>
+                                                Ganti Password
                                             </button>
-                                            <button title="Tolak Akun" className="bg-yellow-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'discard', user: acc })}>
+                                        </div>
+                                    )}
+                                </td>
+                                <td className="px-3 py-2">
+                                    <div className="flex flex-col items-start space-y-2 mt-2">
+                                        {(acc.status === 'pending' || acc.status === 'approved' || acc.status === 'active') && (
+                                            <button title="Tolak Akun" className="bg-yellow-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'discard', user: acc })}>
                                                 <span className="mr-1"><IconCustom name="discard" className="w-6 h-6" /></span> Discard
                                             </button>
-                                        </>
-                                    )}
-                                    {/* Restore hanya untuk status ditolak/discarded */}
-                                    {(acc.status === 'ditolak' || acc.status === 'discarded') && (
-                                        <button title="Pulihkan Akun" className="bg-blue-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'restore', user: acc })}>
-                                            <span className="mr-1"><IconCustom name="restore" className="w-6 h-6" /></span> Pulihkan
+                                        )}
+                                        <button title="Hapus Akun" className="bg-gray-700 text-white px-4 py-2 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'delete', user: acc })}>
+                                            <span className="mr-1"><IconCustom name="trashElegant" className="w-6 h-6" /></span> Hapus
                                         </button>
-                                    )}
-                                    {/* Ganti Password & Stop Akun hanya untuk active */}
-                                    {acc.status === 'active' && (
-                                        <>
-                                            <button title="Ganti Password" className="bg-blue-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setSelectedUser(acc)}>
-                                                <span className="mr-1">🔒</span> Ganti Password
-                                            </button>
-                                            <button title="Stop Akun" className="bg-yellow-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'stop', user: acc })}>
-                                                <span className="mr-1">⏹️</span> Stop Akun
-                                            </button>
-                                        </>
-                                    )}
-                                    {/* Hapus Akun selalu muncul di semua status */}
-                                    <button title="Hapus Akun" className="bg-gray-700 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'delete', user: acc })}>
-                                        <span className="mr-1"><IconCustom name="trashElegant" className="w-6 h-6" /></span> Hapus
-                                    </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -345,7 +339,25 @@ function AccountManagementAdmin({ user }) {
                         <h3 className="text-lg font-bold mb-4">Ganti Password untuk {selectedUser.email}</h3>
                         <input type="password" className="border px-3 py-2 w-full mb-4 rounded" placeholder="Password baru" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                         <div className="flex space-x-2">
-                            <button className="bg-blue-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform" onClick={() => setConfirmAction({ type: 'password', user: selectedUser })}>Simpan</button>
+                            <button className="bg-blue-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform" onClick={async () => {
+                                setLoading(true);
+                                try {
+                                    const res = await fetch('http://172.16.31.14:3001/api/users/reset-password', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+                                        body: JSON.stringify({ userId: selectedUser.id, newPassword })
+                                    });
+                                    const data = await res.json();
+                                    setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
+                                    await fetchAccounts();
+                                } catch (e) {
+                                    setNotif({ type: 'error', text: 'Gagal ganti password.' });
+                                }
+                                setLoading(false);
+                                setSelectedUser(null);
+                                setNewPassword('');
+                                setTimeout(() => setNotif(null), 2000);
+                            }}>Simpan</button>
                             <button className="bg-gray-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform" onClick={() => setSelectedUser(null)}>Batal</button>
                         </div>
                     </div>
@@ -387,20 +399,38 @@ function AccountManagementAdmin({ user }) {
 function AccountManagementUser({ user }) {
     const [newPassword, setNewPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const handleChangePassword = () => {
+    const [notif, setNotif] = useState(null);
+    // status akun user didapat dari user prop
+    const isActive = user?.status === 'active' || user?.status === 'approved';
+    const handleChangePassword = async () => {
+        if (!isActive) return;
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            setNewPassword('');
-        }, 700);
+        try {
+            const res = await fetch('http://172.16.31.14:3001/api/users/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-user-role': 'customer' },
+                body: JSON.stringify({ userId: user.id, newPassword })
+            });
+            const data = await res.json();
+            setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
+        } catch (e) {
+            setNotif({ type: 'error', text: 'Gagal ganti password.' });
+        }
+        setLoading(false);
+        setNewPassword('');
+        setTimeout(() => setNotif(null), 2000);
     };
     return (
         <div className="max-w-md mx-auto">
             <h2 className="text-2xl font-bold mb-6">Ganti Password Akun</h2>
             {loading && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="w-12 h-12 border-4 border-orange-400 border-t-transparent rounded-full animate-spin"></div></div>}
+            {notif && (
+                <div className={`mb-4 px-4 py-2 rounded text-white ${notif.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notif.text}</div>
+            )}
             <div className="glass-card p-6 rounded-2xl">
-                <input type="password" className="border px-3 py-2 w-full mb-4 rounded" placeholder="Password baru" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-                <button className="bg-blue-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform w-full" onClick={handleChangePassword}>Simpan Password Baru</button>
+                <input type="password" className="border px-3 py-2 w-full mb-4 rounded" placeholder="Password baru" value={newPassword} onChange={e => setNewPassword(e.target.value)} disabled={!isActive} />
+                <button className={`bg-blue-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform w-full ${!isActive ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={handleChangePassword} disabled={!isActive}>Simpan Password Baru</button>
+                {!isActive && <p className="text-sm text-yellow-400 mt-2">Akun Anda belum aktif. Ganti password hanya tersedia untuk akun aktif.</p>}
             </div>
         </div>
     );

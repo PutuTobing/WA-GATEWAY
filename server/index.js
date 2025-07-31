@@ -24,7 +24,14 @@ const readUsers = () => {
     try { return JSON.parse(fs.readFileSync(usersDbPath, 'utf8')); } catch { return []; }
 };
 const writeUsers = (data) => {
+try {
+    console.log(`[WRITE_USERS] Path: ${usersDbPath}`);
     fs.writeFileSync(usersDbPath, JSON.stringify(data, null, 2), 'utf8');
+    console.log(`[WRITE_USERS] Berhasil menulis users.json`);
+} catch (err) {
+    console.error(`[WRITE_USERS] Error menulis users.json:`, err);
+    throw err;
+}
 };
 
 // --- Manajemen Sesi & Statistik ---
@@ -87,10 +94,22 @@ app.post('/api/users/discard', isAdmin, (req, res) => {
     const { userId } = req.body;
     const users = readUsers();
     const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex === -1) return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    console.log(`[DISCARD] Request untuk userId: ${userId}`);
+    if (userIndex === -1) {
+        console.log(`[DISCARD] User tidak ditemukan: ${userId}`);
+        return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    }
+    console.log(`[DISCARD] Status sebelum: ${users[userIndex].status}`);
     users[userIndex].status = 'ditolak';
-    writeUsers(users);
-    res.status(200).json({ message: `Pengguna ${users[userIndex].username} telah ditolak.` });
+    try {
+        writeUsers(users);
+        console.log(`[DISCARD] Status sesudah: ${users[userIndex].status}`);
+        console.log(`[DISCARD] users.json setelah update:`, JSON.stringify(users, null, 2));
+        res.status(200).json({ message: `Pengguna ${users[userIndex].username} telah ditolak.` });
+    } catch (err) {
+        console.error(`[DISCARD] Error menulis users.json:`, err);
+        res.status(500).json({ message: 'Gagal update status akun.' });
+    }
 });
 // API untuk memulihkan akun (restore)
 app.post('/api/users/restore', isAdmin, (req, res) => {
