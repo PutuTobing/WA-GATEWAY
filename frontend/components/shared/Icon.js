@@ -2,6 +2,24 @@ import React from 'react';
 
 const Icon = ({ name, className }) => {
     const icons = {
+        trashElegant: (
+            <>
+                <circle cx="12" cy="12" r="12" fill="#F44336" />
+                <rect x="7" y="10" width="10" height="8" rx="2" fill="white" />
+                <rect x="9" y="12" width="1.5" height="5" rx="0.75" fill="#F44336" />
+                <rect x="12" y="12" width="1.5" height="5" rx="0.75" fill="#F44336" />
+                <rect x="15" y="12" width="1.5" height="5" rx="0.75" fill="#F44336" />
+                <rect x="8" y="7" width="8" height="2" rx="1" fill="white" />
+                <rect x="11" y="5" width="2" height="2" rx="1" fill="white" />
+            </>
+        ),
+        restore: (
+            <>
+                <circle cx="12" cy="12" r="12" fill="#2196F3" />
+                <path d="M8 12v-2a4 4 0 1 1 4 4h-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <polyline points="8 16 4 12 8 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </>
+        ),
         home: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>,
         grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"></path>,
         send: <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path>,

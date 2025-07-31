@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import IconCustom from '../components/shared/IconCustom';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import QRCode from "react-qr-code";
@@ -34,9 +35,15 @@ export default function DashboardPage() {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [user, setUser] = useState(null);
     const [activeMenu, setActiveMenu] = useState('Koneksi & QR');
-    
+    const [isLoadingMenu, setIsLoadingMenu] = useState(false);
     const baseMenuItems = ['Koneksi & QR', 'Kirim Pesan', 'History Pesan'];
     const adminMenuItems = ['Manajemen Perangkat', ...baseMenuItems];
+
+    useEffect(() => {
+        setIsLoadingMenu(true);
+        const timer = setTimeout(() => setIsLoadingMenu(false), 500);
+        return () => clearTimeout(timer);
+    }, [activeMenu]);
 
     const handleLogout = useCallback(() => {
         localStorage.removeItem('token');
@@ -68,6 +75,8 @@ export default function DashboardPage() {
 
     const menuItems = user?.role === 'admin' ? adminMenuItems : baseMenuItems;
 
+    // (Sudah dideklarasikan di atas, hapus duplikat ini)
+
     if (isLoading) {
         return (<div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white"><div className="w-8 h-8 border-4 border-orange-400 border-t-transparent rounded-full animate-spin"></div><p className="mt-4">Memverifikasi sesi...</p></div>);
     }
@@ -95,10 +104,26 @@ export default function DashboardPage() {
                                 ))}
                             </ul>
                         </nav>
+                        {/* Menu Manajemen Akun di bawah, di atas tombol logout */}
+                        <div className="mb-2">
+                            <a href="#" onClick={(e) => { e.preventDefault(); setActiveMenu('Manajemen Akun'); setSidebarOpen(false); }} className={`nav-item flex items-center py-2.5 px-4 rounded-lg transition-all duration-200 ${activeMenu === 'Manajemen Akun' ? 'bg-orange-500/30 text-white font-semibold' : 'text-gray-300 hover:bg-slate-700 hover:text-white'}`}>
+                                {/* Icon akun */}
+                                <svg className="w-5 h-5 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A9.001 9.001 0 0112 15c2.21 0 4.21.8 5.879 2.138M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                Manajemen Akun
+                            </a>
+                        </div>
                         <div><a href="#" onClick={handleLogout} className="flex items-center w-full py-2.5 px-4 rounded-lg text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200"><LogoutIcon />Logout</a></div>
                     </aside>
                     <main className="flex-1 p-6 md:p-10">
+                        {/* Animasi loading saat menu berganti */}
+                        {isLoadingMenu && (
+                            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                                <div className="w-12 h-12 border-4 border-orange-400 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        )}
                         {user?.role === 'admin' && activeMenu === 'Manajemen Perangkat' && <DeviceManagementPage setActiveMenu={setActiveMenu} />}
+                        {user?.role === 'admin' && activeMenu === 'Manajemen Akun' && <AccountManagementAdmin user={user} />}
+                        {user?.role === 'customer' && activeMenu === 'Manajemen Akun' && <AccountManagementUser user={user} />}
                         {user?.role === 'customer' && activeMenu === 'Koneksi & QR' && <ConnectionPage user={user} />}
                         {user?.role === 'customer' && activeMenu === 'Kirim Pesan' && <SendMessagePage user={user} />}
                         {user?.role === 'customer' && activeMenu === 'History Pesan' && <HistoryPage user={user} />}
@@ -110,6 +135,276 @@ export default function DashboardPage() {
 }
 
 // --- KOMPONEN-KOMPONEN HALAMAN ---
+// Komponen Manajemen Akun untuk Admin
+function AccountManagementAdmin({ user }) {
+    const [accounts, setAccounts] = useState([]);
+    // Ambil data akun dari backend
+    const fetchAccounts = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('http://172.16.31.14:3001/api/users', {
+                headers: { 'x-user-role': 'admin' }
+            });
+            const data = await res.json();
+            setAccounts(data);
+        } catch (e) {
+            setNotif({ type: 'error', text: 'Gagal mengambil data akun.' });
+        }
+        setLoading(false);
+    };
+    useEffect(() => { fetchAccounts(); }, []);
+    const [loading, setLoading] = useState(false);
+    const [notif, setNotif] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmAction, setConfirmAction] = useState(null); // { type, user }
+    // Modal konfirmasi universal
+    const handleConfirm = async () => {
+        if (!confirmAction) return;
+        setLoading(true);
+        try {
+            if (confirmAction.type === 'delete') {
+                const res = await fetch(`http://172.16.31.14:3001/api/users/${confirmAction.user.id}`, {
+                    method: 'DELETE',
+                    headers: { 'x-user-role': 'admin' }
+                });
+                const data = await res.json();
+                setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
+                await fetchAccounts();
+            } else if (confirmAction.type === 'restore') {
+                // Pulihkan akun ke pending
+                const res = await fetch(`http://172.16.31.14:3001/api/users/restore`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+                    body: JSON.stringify({ userId: confirmAction.user.id })
+                });
+                const data = await res.json();
+                setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
+                await fetchAccounts();
+            } else if (confirmAction.type === 'accept') {
+                await handleAction(confirmAction.user.id, 'accept');
+            } else if (confirmAction.type === 'discard') {
+                await handleAction(confirmAction.user.id, 'discard');
+            } else if (confirmAction.type === 'stop') {
+                await handleStopAccount(confirmAction.user.id);
+            } else if (confirmAction.type === 'password') {
+                await handleChangePassword();
+            }
+        } catch (e) {
+            setNotif({ type: 'error', text: 'Aksi gagal.' });
+        }
+        setLoading(false);
+        setConfirmAction(null);
+        setTimeout(() => setNotif(null), 2000);
+    };
+
+    // Animasi loading saat aksi
+    const handleAction = async (id, action) => {
+        setLoading(true);
+        try {
+            const endpoint = action === 'accept' ? '/api/users/approve' : '/api/users/discard';
+            const res = await fetch(`http://172.16.31.14:3001${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+                body: JSON.stringify({ userId: id })
+            });
+            const data = await res.json();
+            setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
+            await fetchAccounts();
+        } catch (e) {
+            setNotif({ type: 'error', text: 'Gagal update status akun.' });
+        }
+        setLoading(false);
+        setTimeout(() => setNotif(null), 2000);
+    };
+
+    // Fungsi hentikan akun (stop session)
+    const handleStopAccount = async (id) => {
+        setLoading(true);
+        try {
+            const res = await fetch('http://172.16.31.14:3001/api/sessions/disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+                body: JSON.stringify({ sessionId: id })
+            });
+            const data = await res.json();
+            setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
+            await fetchAccounts();
+        } catch (e) {
+            setNotif({ type: 'error', text: 'Gagal menghentikan akun.' });
+        }
+        setLoading(false);
+        setTimeout(() => setNotif(null), 2000);
+    };
+    const handleChangePassword = () => {
+        setLoading(true);
+        setTimeout(() => {
+            setLoading(false);
+            setSelectedUser(null);
+            setNewPassword('');
+        }, 700);
+    };
+
+    return (
+        <div className="max-w-3xl mx-auto">
+            <h2 className="text-2xl font-bold mb-6">Manajemen Akun</h2>
+            {loading && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="w-12 h-12 border-4 border-orange-400 border-t-transparent rounded-full animate-spin"></div></div>}
+            {notif && (
+                <div className={`mb-4 px-4 py-2 rounded text-white ${notif.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notif.text}</div>
+            )}
+            <div className="glass-card p-6 rounded-2xl mb-8">
+                <h3 className="text-lg font-semibold mb-4">Daftar Akun Mendaftar</h3>
+                <table className="w-full text-left border">
+                    <thead>
+                        <tr className="bg-gray-800 text-gray-300">
+                            <th className="px-3 py-2">Email</th>
+                            <th className="px-3 py-2">Status</th>
+                            <th className="px-3 py-2">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {accounts.map(acc => (
+                            <tr key={acc.id} className="border-b border-gray-700">
+                                <td className="px-3 py-2">{acc.email}</td>
+                                <td className="px-3 py-2">
+                                    {acc.status === 'pending' ? <span className="text-yellow-400">Menunggu</span>
+                                        : acc.status === 'active' ? <span className="text-green-400">Aktif</span>
+                                        : acc.status === 'stopped' ? <span className="text-gray-400">Stopped</span>
+                                        : <span className="text-red-400">Ditolak</span>}
+                                </td>
+                                <td className="px-3 py-2 space-x-2 flex flex-wrap">
+                                    {/* Accept & Discard hanya untuk pending */}
+                                    {acc.status === 'pending' && (
+                                        <>
+                                            <button title="Terima Akun" className="bg-green-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'accept', user: acc })}>
+                                                <span className="mr-1"><IconCustom name="accept" className="w-6 h-6" /></span> Accept
+                                            </button>
+                                            <button title="Tolak Akun" className="bg-yellow-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'discard', user: acc })}>
+                                                <span className="mr-1"><IconCustom name="discard" className="w-6 h-6" /></span> Discard
+                                            </button>
+                                        </>
+                                    )}
+                                    {/* Restore hanya untuk status ditolak/discarded */}
+                                    {(acc.status === 'ditolak' || acc.status === 'discarded') && (
+                                        <button title="Pulihkan Akun" className="bg-blue-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'restore', user: acc })}>
+                                            <span className="mr-1"><IconCustom name="restore" className="w-6 h-6" /></span> Pulihkan
+                                        </button>
+                                    )}
+                                    {/* Ganti Password & Stop Akun hanya untuk active */}
+                                    {acc.status === 'active' && (
+                                        <>
+                                            <button title="Ganti Password" className="bg-blue-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setSelectedUser(acc)}>
+                                                <span className="mr-1">🔒</span> Ganti Password
+                                            </button>
+                                            <button title="Stop Akun" className="bg-yellow-500 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'stop', user: acc })}>
+                                                <span className="mr-1">⏹️</span> Stop Akun
+                                            </button>
+                                        </>
+                                    )}
+                                    {/* Hapus Akun selalu muncul di semua status */}
+                                    <button title="Hapus Akun" className="bg-gray-700 text-white px-3 py-1 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'delete', user: acc })}>
+                                        <span className="mr-1"><IconCustom name="trashElegant" className="w-6 h-6" /></span> Hapus
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <div className="glass-card p-6 rounded-2xl mb-8">
+                <h3 className="text-lg font-semibold mb-4">Log Aktivitas Akun</h3>
+                <table className="w-full text-left border">
+                    <thead>
+                        <tr className="bg-gray-800 text-gray-300">
+                            <th className="px-3 py-2">Email</th>
+                            <th className="px-3 py-2">Aktivitas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {accounts.map(acc => acc.logs && acc.logs.length > 0 && (
+                            <tr key={acc.id} className="border-b border-gray-700">
+                                <td className="px-3 py-2 align-top">{acc.email}</td>
+                                <td className="px-3 py-2">
+                                    <ul>
+                                        {acc.logs.map((log, idx) => (
+                                            <li key={idx} className="mb-1">
+                                                <span className={log.type === 'login' ? 'text-green-400' : 'text-red-400'}>{log.type.toUpperCase()}</span> - <span className="text-gray-300">{log.time}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {/* Modal ganti password user */}
+            {selectedUser && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-slate-900 p-8 rounded-2xl shadow-lg w-full max-w-md">
+                        <h3 className="text-lg font-bold mb-4">Ganti Password untuk {selectedUser.email}</h3>
+                        <input type="password" className="border px-3 py-2 w-full mb-4 rounded" placeholder="Password baru" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                        <div className="flex space-x-2">
+                            <button className="bg-blue-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform" onClick={() => setConfirmAction({ type: 'password', user: selectedUser })}>Simpan</button>
+                            <button className="bg-gray-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform" onClick={() => setSelectedUser(null)}>Batal</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal konfirmasi universal */}
+            {confirmAction && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-slate-900 p-8 rounded-2xl shadow-lg w-full max-w-md text-center">
+                        <div className="mb-4 flex justify-center">
+                            {confirmAction.type === 'delete' && <IconCustom name="trashElegant" className="w-10 h-10" />}
+                            {confirmAction.type === 'restore' && <IconCustom name="restore" className="w-10 h-10" />}
+                            {confirmAction.type === 'accept' && <IconCustom name="accept" className="w-10 h-10" />}
+                            {confirmAction.type === 'discard' && <IconCustom name="discard" className="w-10 h-10" />}
+                            {confirmAction.type === 'stop' && <span className="text-4xl">⏹️</span>}
+                            {confirmAction.type === 'password' && <span className="text-4xl">🔒</span>}
+                        </div>
+                        <h3 className="text-lg font-bold mb-2">Konfirmasi Aksi</h3>
+                        <p className="mb-6">
+                            {confirmAction.type === 'delete' && `Apakah Anda yakin ingin menghapus akun ${confirmAction.user.email}?`}
+                            {confirmAction.type === 'restore' && `Pulihkan akun ${confirmAction.user.email} agar bisa diaktifkan kembali?`}
+                            {confirmAction.type === 'accept' && `Terima akun ${confirmAction.user.email}?`}
+                            {confirmAction.type === 'discard' && `Tolak akun ${confirmAction.user.email}?`}
+                            {confirmAction.type === 'stop' && `Hentikan sesi akun ${confirmAction.user.email}?`}
+                            {confirmAction.type === 'password' && `Simpan password baru untuk ${confirmAction.user.email}?`}
+                        </p>
+                        <div className="flex space-x-2 justify-center">
+                            <button className="bg-green-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform" onClick={handleConfirm}>Ya, Lanjutkan</button>
+                            <button className="bg-gray-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform" onClick={() => setConfirmAction(null)}>Batal</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Komponen Manajemen Akun untuk User
+function AccountManagementUser({ user }) {
+    const [newPassword, setNewPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const handleChangePassword = () => {
+        setLoading(true);
+        setTimeout(() => {
+            setLoading(false);
+            setNewPassword('');
+        }, 700);
+    };
+    return (
+        <div className="max-w-md mx-auto">
+            <h2 className="text-2xl font-bold mb-6">Ganti Password Akun</h2>
+            {loading && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="w-12 h-12 border-4 border-orange-400 border-t-transparent rounded-full animate-spin"></div></div>}
+            <div className="glass-card p-6 rounded-2xl">
+                <input type="password" className="border px-3 py-2 w-full mb-4 rounded" placeholder="Password baru" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                <button className="bg-blue-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform w-full" onClick={handleChangePassword}>Simpan Password Baru</button>
+            </div>
+        </div>
+    );
+}
 
 function ConnectionPage({ user }) {
     const [status, setStatus] = useState(null);

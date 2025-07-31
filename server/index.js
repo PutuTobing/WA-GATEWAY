@@ -82,6 +82,26 @@ app.post('/api/users/approve', isAdmin, (req, res) => {
     writeUsers(users);
     res.status(200).json({ message: `Pengguna ${users[userIndex].username} telah disetujui.` });
 });
+// API untuk menolak akun (discard)
+app.post('/api/users/discard', isAdmin, (req, res) => {
+    const { userId } = req.body;
+    const users = readUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    users[userIndex].status = 'ditolak';
+    writeUsers(users);
+    res.status(200).json({ message: `Pengguna ${users[userIndex].username} telah ditolak.` });
+});
+// API untuk memulihkan akun (restore)
+app.post('/api/users/restore', isAdmin, (req, res) => {
+    const { userId } = req.body;
+    const users = readUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    users[userIndex].status = 'pending';
+    writeUsers(users);
+    res.status(200).json({ message: `Pengguna ${users[userIndex].username} dipulihkan ke status pending.` });
+});
 app.post('/api/users/reset-password', isAdmin, async (req, res) => {
     const { userId, newPassword } = req.body;
     if (!userId || !newPassword) return res.status(400).json({ message: 'User ID dan password baru diperlukan.' });
@@ -232,14 +252,26 @@ app.post('/api/sessions/disconnect', async (req, res) => {
     // Dibuat agar bisa diakses admin dan pengguna sendiri
     const { sessionId } = req.body;
     const client = sessions[sessionId];
+    const users = readUsers();
+    const userIndex = users.findIndex(u => u.id === sessionId);
     if (client) {
         try {
             await client.logout();
+            // Update status akun di database
+            if (userIndex !== -1) {
+                users[userIndex].status = 'stopped';
+                writeUsers(users);
+            }
             res.status(200).json({ message: "Sesi berhasil diputuskan." });
         } catch (e) {
             res.status(500).json({ message: "Gagal memutuskan sesi." });
         }
     } else {
+        // Jika tidak ada sesi, tetap update status di database
+        if (userIndex !== -1) {
+            users[userIndex].status = 'stopped';
+            writeUsers(users);
+        }
         res.status(404).json({ message: "Sesi tidak ditemukan atau sudah offline." });
     }
 });
