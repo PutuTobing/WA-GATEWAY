@@ -1,0 +1,6 @@
+# Backend
+server/node_modules/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
