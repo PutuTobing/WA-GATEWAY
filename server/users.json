@@ -1,0 +1,20 @@
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "username": "BTD",
+    "email": "admin@btd.com",
+    "password": "$2b$10$F77LgE5Om9eCYlRSBUBf8eBCRZnftmfoXiJH2225/FGdtzXFSl9/u",
+    "role": "admin",
+    "status": "approved",
+    "webhookUrl": "https://webhook.site/78108b41-b1a0-48d8-912b-641c7af9e2d6"
+  },
+  {
+    "id": "f5b15c9f-4ea6-434b-95c4-1f8f77d8b0f2",
+    "username": "pelanggan1",
+    "email": "pelanggan1@example.com",
+    "password": "$2b$10$OtUgfkPfcqjkj1WEQCyNxuZSQkIPQkjgQQxHAfg6KP3hZgGOh4Zru",
+    "role": "customer",
+    "status": "approved",
+    "webhookUrl": "123"
+  }
+]
