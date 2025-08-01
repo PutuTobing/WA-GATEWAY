@@ -36,8 +36,9 @@ export default function DashboardPage() {
     const [user, setUser] = useState(null);
     const [activeMenu, setActiveMenu] = useState('Koneksi & QR');
     const [isLoadingMenu, setIsLoadingMenu] = useState(false);
-    const baseMenuItems = ['Koneksi & QR', 'Kirim Pesan', 'History Pesan'];
-    const adminMenuItems = ['Manajemen Perangkat', ...baseMenuItems];
+    // Manajemen Perangkat selalu muncul untuk semua user
+    const baseMenuItems = ['Manajemen Perangkat', 'Koneksi & QR', 'Kirim Pesan', 'History Pesan'];
+    const adminMenuItems = baseMenuItems;
 
     useEffect(() => {
         setIsLoadingMenu(true);
@@ -73,7 +74,7 @@ export default function DashboardPage() {
         }
     }, [router, handleLogout]);
 
-    const menuItems = user?.role === 'admin' ? adminMenuItems : baseMenuItems;
+    const menuItems = baseMenuItems;
 
     // (Sudah dideklarasikan di atas, hapus duplikat ini)
 
@@ -121,9 +122,9 @@ export default function DashboardPage() {
                                 <div className="w-12 h-12 border-4 border-orange-400 border-t-transparent rounded-full animate-spin"></div>
                             </div>
                         )}
-                        {user?.role === 'admin' && activeMenu === 'Manajemen Perangkat' && <DeviceManagementPage setActiveMenu={setActiveMenu} />}
+                        {activeMenu === 'Manajemen Perangkat' && <DeviceManagementPage user={user} setActiveMenu={setActiveMenu} />}
                         {user?.role === 'admin' && activeMenu === 'Manajemen Akun' && <AccountManagementAdmin user={user} />}
-                        {user?.role === 'customer' && activeMenu === 'Manajemen Akun' && <AccountManagementUser user={user} />}
+                        {user?.role === 'customer' && activeMenu === 'Manajemen Akun' && <AccountManagementUser user={user} setUser={setUser} />}
                         {user?.role === 'customer' && activeMenu === 'Koneksi & QR' && <ConnectionPage user={user} />}
                         {user?.role === 'customer' && activeMenu === 'Kirim Pesan' && <SendMessagePage user={user} />}
                         {user?.role === 'customer' && activeMenu === 'History Pesan' && <HistoryPage user={user} />}
@@ -250,87 +251,99 @@ function AccountManagementAdmin({ user }) {
     };
 
     return (
-        <div className="max-w-3xl mx-auto">
+        <div className="w-full max-w-5xl mx-auto p-2 md:p-8">
             <h2 className="text-2xl font-bold mb-6">Manajemen Akun</h2>
-            {loading && <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="w-12 h-12 border-4 border-orange-400 border-t-transparent rounded-full animate-spin"></div></div>}
-            {notif && (
-                <div className={`mb-4 px-4 py-2 rounded text-white ${notif.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notif.text}</div>
-            )}
-            <div className="glass-card p-6 rounded-2xl mb-8 w-full max-w-2xl mx-auto">
+            <div className="glass-card p-2 md:p-6 rounded-2xl mb-8 w-full">
                 <h3 className="text-lg font-semibold mb-4">Daftar Akun Mendaftar</h3>
-                <table className="w-full text-left border">
-                    <thead>
-                        <tr className="bg-gray-800 text-gray-300">
-                            <th className="px-3 py-2">Email</th>
-                            <th className="px-3 py-2">Status</th>
-                            <th className="px-3 py-2">Password</th>
-                            <th className="px-3 py-2">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {accounts.map(acc => (
-                            <tr key={acc.id} className="border-b border-gray-700">
-                                <td className="px-3 py-2">{acc.email}</td>
-                                <td className="px-3 py-2">
-                                    {acc.status === 'pending' ? <span className="text-yellow-400">Menunggu</span>
-                                        : acc.status === 'approved' ? <span className="text-green-400">Aktif</span>
-                                        : acc.status === 'active' ? <span className="text-green-400">Aktif</span>
-                                        : acc.status === 'stopped' ? <span className="text-gray-400">Stopped</span>
-                                        : <span className="text-red-400">Ditolak</span>}
-                                </td>
-                                <td className="px-3 py-2">
-                                    {(acc.status === 'active' || acc.status === 'approved') && (
-                                        <div className="flex flex-col items-start space-y-2 mt-2">
-                                            <button title="Ganti Password" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center transition-transform active:scale-95 shadow-sm" onClick={() => setSelectedUser(acc)}>
-                                                <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-7V7a6 6 0 10-12 0v3a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2v-7a2 2 0 00-2-2zm-6-7a4 4 0 014 4v3H8V7a4 4 0 014-4z" /></svg>
-                                                Ganti Password
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-none min-w-[340px] md:min-w-[600px] text-sm md:text-base">
+                        <thead>
+                            <tr className="bg-gray-800 text-gray-300 border-b border-gray-600">
+                                <th className="px-2 md:px-3 py-2 break-words">Email</th>
+                                <th className="px-2 md:px-3 py-2 break-words">Status</th>
+                                <th className="px-2 md:px-3 py-2 break-words">Password</th>
+                                <th className="px-2 md:px-3 py-2 break-words">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {accounts.map(acc => (
+                                <tr key={acc.id} className="border-b border-gray-700">
+                                    <td className="px-2 md:px-3 py-2 break-words max-w-[120px] md:max-w-none">{acc.email}</td>
+                                    <td className="px-2 md:px-3 py-2">
+                                        {acc.status === 'pending' ? <span className="text-yellow-400">Menunggu</span>
+                                            : acc.status === 'approved' ? <span className="text-green-400">Aktif</span>
+                                            : acc.status === 'active' ? <span className="text-green-400">Aktif</span>
+                                            : acc.status === 'stopped' ? <span className="text-gray-400">Stopped</span>
+                                            : <span className="text-red-400">Ditolak</span>}
+                                    </td>
+                                    <td className="px-2 md:px-3 py-2">
+                                        {(acc.status === 'active' || acc.status === 'approved') && (
+                                            <div className="flex flex-col items-stretch space-y-2 mt-2 w-full">
+                                                <button title="Ganti Password" className="bg-blue-500 hover:bg-blue-600 text-white px-2 md:px-4 py-2 rounded-lg flex items-center justify-center transition-transform active:scale-95 shadow-sm w-full" onClick={() => setSelectedUser(acc)}>
+                                                    <svg className="w-5 h-5 md:w-6 md:h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-7V7a6 6 0 10-12 0v3a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2v-7a2 2 0 00-2-2zm-6-7a4 4 0 014 4v3H8V7a4 4 0 014-4z" /></svg>
+                                                    <span className="truncate">Ganti Password</span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="px-2 md:px-3 py-2">
+                                        <div className="flex flex-col items-stretch space-y-2 mt-2 w-full">
+                                            {/* Tombol Accept hanya untuk status pending */}
+                                            {acc.status === 'pending' && (
+                                                <button title="Terima Akun" className="bg-green-500 text-white px-2 md:px-4 py-2 rounded hover:scale-105 transition-transform flex items-center justify-center w-full mb-1" onClick={() => setConfirmAction({ type: 'accept', user: acc })}>
+                                                    <span className="mr-1"><IconCustom name="accept" className="w-5 h-5 md:w-6 md:h-6" /></span> <span className="truncate">Accept</span>
+                                                </button>
+                                            )}
+                                            {/* Tombol Pulihkan hanya untuk status rejected/discarded/ditolak */}
+                                            {(acc.status === 'rejected' || acc.status === 'discarded' || acc.status?.toLowerCase() === 'ditolak') && (
+                                                <button title="Pulihkan Akun" className="bg-blue-500 text-white px-2 md:px-4 py-2 rounded hover:scale-105 transition-transform flex items-center justify-center w-full mb-1" onClick={() => setConfirmAction({ type: 'restore', user: acc })}>
+                                                    <span className="mr-1"><IconCustom name="restore" className="w-5 h-5 md:w-6 md:h-6" /></span> <span className="truncate">Pulihkan</span>
+                                                </button>
+                                            )}
+                                            {(acc.status === 'pending' || acc.status === 'approved' || acc.status === 'active') && (
+                                                <button title="Tolak Akun" className="bg-yellow-500 text-white px-2 md:px-4 py-2 rounded hover:scale-105 transition-transform flex items-center justify-center w-full" onClick={() => setConfirmAction({ type: 'discard', user: acc })}>
+                                                    <span className="mr-1"><IconCustom name="discard" className="w-5 h-5 md:w-6 md:h-6" /></span> <span className="truncate">Discard</span>
+                                                </button>
+                                            )}
+                                            <button title="Hapus Akun" className="bg-gray-700 text-white px-2 md:px-4 py-2 rounded hover:scale-105 transition-transform flex items-center justify-center w-full" onClick={() => setConfirmAction({ type: 'delete', user: acc })}>
+                                                <span className="mr-1"><IconCustom name="trashElegant" className="w-5 h-5 md:w-6 md:h-6" /></span> <span className="truncate">Hapus</span>
                                             </button>
                                         </div>
-                                    )}
-                                </td>
-                                <td className="px-3 py-2">
-                                    <div className="flex flex-col items-start space-y-2 mt-2">
-                                        {(acc.status === 'pending' || acc.status === 'approved' || acc.status === 'active') && (
-                                            <button title="Tolak Akun" className="bg-yellow-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'discard', user: acc })}>
-                                                <span className="mr-1"><IconCustom name="discard" className="w-6 h-6" /></span> Discard
-                                            </button>
-                                        )}
-                                        <button title="Hapus Akun" className="bg-gray-700 text-white px-4 py-2 rounded hover:scale-105 transition-transform flex items-center" onClick={() => setConfirmAction({ type: 'delete', user: acc })}>
-                                            <span className="mr-1"><IconCustom name="trashElegant" className="w-6 h-6" /></span> Hapus
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div className="glass-card p-6 rounded-2xl mb-8">
+            <div className="glass-card p-6 rounded-2xl mb-8 w-full">
                 <h3 className="text-lg font-semibold mb-4">Log Aktivitas Akun</h3>
-                <table className="w-full text-left border">
-                    <thead>
-                        <tr className="bg-gray-800 text-gray-300">
-                            <th className="px-3 py-2">Email</th>
-                            <th className="px-3 py-2">Aktivitas</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {accounts.map(acc => acc.logs && acc.logs.length > 0 && (
-                            <tr key={acc.id} className="border-b border-gray-700">
-                                <td className="px-3 py-2 align-top">{acc.email}</td>
-                                <td className="px-3 py-2">
-                                    <ul>
-                                        {acc.logs.map((log, idx) => (
-                                            <li key={idx} className="mb-1">
-                                                <span className={log.type === 'login' ? 'text-green-400' : 'text-red-400'}>{log.type.toUpperCase()}</span> - <span className="text-gray-300">{log.time}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-none min-w-[400px]">
+                        <thead>
+                            <tr className="bg-gray-800 text-gray-300 border-b border-gray-600">
+                                <th className="px-3 py-2">Email</th>
+                                <th className="px-3 py-2">Aktivitas</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {accounts.map(acc => acc.logs && acc.logs.length > 0 && (
+                                <tr key={acc.id} className="border-b border-gray-700">
+                                    <td className="px-3 py-2 align-top">{acc.email}</td>
+                                    <td className="px-3 py-2">
+                                        <ul>
+                                            {acc.logs.map((log, idx) => (
+                                                <li key={idx} className="mb-1">
+                                                    <span className={log.type === 'login' ? 'text-green-400' : 'text-red-400'}>{log.type.toUpperCase()}</span> - <span className="text-gray-300">{log.time}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
             {/* Modal ganti password user */}
             {selectedUser && (
@@ -396,20 +409,48 @@ function AccountManagementAdmin({ user }) {
 }
 
 // Komponen Manajemen Akun untuk User
-function AccountManagementUser({ user }) {
+function AccountManagementUser({ user, setUser }) {
+    const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [notif, setNotif] = useState(null);
-    // status akun user didapat dari user prop
-    const isActive = user?.status === 'active' || user?.status === 'approved';
+    useEffect(() => {
+        const fetchUser = async () => {
+            try {
+                const res = await fetch('http://172.16.31.14:3001/api/users', {
+                    headers: { 'x-user-role': 'admin' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const found = data.find(u => u.id === user.id);
+                    if (found) {
+                        setUser && setUser(found);
+                    }
+                }
+            } catch (e) {}
+        };
+        fetchUser();
+    }, []);
+    const isActive = user?.status === 'approved';
     const handleChangePassword = async () => {
         if (!isActive) return;
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            setNotif({ type: 'error', text: 'Semua kolom wajib diisi.' });
+            setTimeout(() => setNotif(null), 2000);
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setNotif({ type: 'error', text: 'Password baru dan verifikasi tidak sama.' });
+            setTimeout(() => setNotif(null), 2000);
+            return;
+        }
         setLoading(true);
         try {
-            const res = await fetch('http://172.16.31.14:3001/api/users/reset-password', {
+            const res = await fetch('http://172.16.31.14:3001/api/users/change-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-user-role': 'customer' },
-                body: JSON.stringify({ userId: user.id, newPassword })
+                body: JSON.stringify({ userId: user.id, oldPassword, newPassword })
             });
             const data = await res.json();
             setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
@@ -417,7 +458,9 @@ function AccountManagementUser({ user }) {
             setNotif({ type: 'error', text: 'Gagal ganti password.' });
         }
         setLoading(false);
+        setOldPassword('');
         setNewPassword('');
+        setConfirmPassword('');
         setTimeout(() => setNotif(null), 2000);
     };
     return (
@@ -428,7 +471,9 @@ function AccountManagementUser({ user }) {
                 <div className={`mb-4 px-4 py-2 rounded text-white ${notif.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notif.text}</div>
             )}
             <div className="glass-card p-6 rounded-2xl">
+                <input type="password" className="border px-3 py-2 w-full mb-4 rounded" placeholder="Password lama" value={oldPassword} onChange={e => setOldPassword(e.target.value)} disabled={!isActive} />
                 <input type="password" className="border px-3 py-2 w-full mb-4 rounded" placeholder="Password baru" value={newPassword} onChange={e => setNewPassword(e.target.value)} disabled={!isActive} />
+                <input type="password" className="border px-3 py-2 w-full mb-4 rounded" placeholder="Verifikasi password baru" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} disabled={!isActive} />
                 <button className={`bg-blue-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform w-full ${!isActive ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={handleChangePassword} disabled={!isActive}>Simpan Password Baru</button>
                 {!isActive && <p className="text-sm text-yellow-400 mt-2">Akun Anda belum aktif. Ganti password hanya tersedia untuk akun aktif.</p>}
             </div>
@@ -474,7 +519,7 @@ function ConnectionPage({ user }) {
 
     const renderContent = () => {
         if (error) return { icon: <svg className="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>, title: "Koneksi Gagal", message: error, color: 'red' };
-        if (!status) return { icon: <svg className="w-12 h-12 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24"><path d="M12 4.75V6.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M17.1266 6.87347L16.0659 7.93413" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M19.25 12L17.75 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M17.1266 17.1265L16.0659 16.0659" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 19.25V17.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M6.87347 17.1265L7.93413 16.0659" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M4.75 12L6.25 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M6.87347 6.87347L7.93413 7.93413" stroke="currentColor" strokeWidth="1.S" strokeLinecap="round" strokeLinejoin="round"></path></svg>, title: "Memuat Status...", message: "Menghubungi server...", color: 'gray' };
+        if (!status) return { icon: <svg className="w-12 h-12 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24"><path d="M12 4.75V6.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M17.1266 6.87347L16.0659 7.93413" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M19.25 12L17.75 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M17.1266 17.1265L16.0659 16.0659" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M12 19.25V17.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M6.87347 17.1265L7.93413 16.0659" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M4.75 12L6.25 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path><path d="M6.87347 6.87347L7.93413 7.93413" stroke="currentColor" strokeWidth="2" d="M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>, title: "Memuat Status...", message: "Menghubungi server...", color: 'gray' };
         if (status.isReady) return { icon: <svg className="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>, title: "Bot Siap Digunakan!", message: status.message, color: 'green' };
         if (status.qr) return { icon: <svg className="w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M4 12H3m1.636-6.364l.707.707M12 20v-1m6.364-6.364l-.707-.707M6.343 6.343l-.707-.707"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>, title: "Pindai untuk Menghubungkan", message: status.message, color: 'blue' };
         return { icon: <svg className="w-12 h-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636a9 9 0 010 12.728m-12.728 0a9 9 0 010-12.728m12.728 0L5.636 18.364"></path></svg>, title: "Sesi Tidak Aktif", message: status.message, color: 'yellow' };
@@ -624,24 +669,131 @@ function HistoryPage({ user }) {
     );
 }
 
-function DeviceManagementPage({ setActiveMenu }) {
+function DeviceManagementPage({ user, setActiveMenu }) {
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showQrModal, setShowQrModal] = useState(false);
+    const [qrSessionId, setQrSessionId] = useState(null);
+    const [qrCode, setQrCode] = useState(null);
+    const [notif, setNotif] = useState(null);
+    const [webhookEdits, setWebhookEdits] = useState({});
 
+    // Fetch devices for current user (admin: all, user: only their own)
     const fetchDevices = useCallback(async () => {
-        const user = JSON.parse(localStorage.getItem('user'));
         try {
             const res = await fetch(`${BACKEND_URL}/api/devices`, {
                 headers: { 'x-user-role': user?.role || '' }
             });
             const data = await res.json();
-            if (res.ok) setDevices(data);
+            if (res.ok) {
+                setDevices(user?.role === 'admin' ? data : data.filter(d => d.userId === user.id));
+            }
         } catch (err) {
-            console.error(err);
+            setNotif({ type: 'error', text: 'Gagal memuat perangkat.' });
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user]);
+    // Handler Simpan Webhook
+    const handleSaveWebhook = async (device) => {
+        const url = webhookEdits[device.userId] ?? device.webhookUrl;
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/webhook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: device.userId, url })
+            });
+            const data = await res.json();
+            setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
+            fetchDevices();
+        } catch (e) {
+            setNotif({ type: 'error', text: 'Gagal menyimpan webhook.' });
+        }
+        setTimeout(() => setNotif(null), 2000);
+    };
+
+    // Handler Hapus Perangkat
+    const handleDeleteDevice = async (device) => {
+        if (!window.confirm('Yakin ingin menghapus perangkat ini?')) return;
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/users/${device.userId}`, {
+                method: 'DELETE',
+                headers: { 'x-user-role': user?.role || '' }
+            });
+            const data = await res.json();
+            setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
+            fetchDevices();
+        } catch (e) {
+            setNotif({ type: 'error', text: 'Gagal menghapus perangkat.' });
+        }
+        setTimeout(() => setNotif(null), 2000);
+    };
+
+    // Handler Scan QR/Scan Ulang QR
+    // Ref polling QR agar bisa dibersihkan
+    const qrPollRef = useRef();
+    const handleShowQr = async (device) => {
+        console.log('handleShowQr dipanggil dengan device:', device);
+        if (!device || !device.userId) {
+            console.warn('Device tidak valid:', device);
+            return;
+        }
+        setQrSessionId(device.userId);
+        setShowQrModal(true);
+        setQrCode(null);
+        // Mulai sesi baru (atau ulangi)
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/sessions/init`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: device.userId })
+            });
+            console.log('Request /api/sessions/init response:', res.status);
+        } catch (e) {
+            console.error('Error fetch /api/sessions/init:', e);
+        }
+        // Polling QR selama modal terbuka
+        let tries = 0;
+        const poll = async () => {
+            if (!device.userId) return;
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/sessions/status/${device.userId}`);
+                const data = await res.json();
+                console.log('Polling /api/sessions/status:', data);
+                if (data.qr) setQrCode(data.qr);
+                // Jika perangkat sudah ready, tutup modal otomatis
+                if (data.isReady) {
+                    setShowQrModal(false);
+                    return;
+                }
+            } catch (err) {
+                setQrCode(null);
+                console.error('Error polling /api/sessions/status:', err);
+            }
+            tries++;
+            // Lanjut polling jika modal masih terbuka dan belum lebih dari 30x
+            if (tries <= 30 && qrPollRef.current) {
+                qrPollRef.current = setTimeout(poll, 2000);
+            }
+        };
+        // Mulai polling dan simpan ref timeout
+        qrPollRef.current = setTimeout(poll, 0);
+    };
+
+    // Cleanup polling jika modal ditutup
+    useEffect(() => {
+        if (!showQrModal && qrPollRef.current) {
+            clearTimeout(qrPollRef.current);
+            qrPollRef.current = null;
+        }
+        // Cleanup on unmount
+        return () => {
+            if (qrPollRef.current) {
+                clearTimeout(qrPollRef.current);
+                qrPollRef.current = null;
+            }
+        };
+    }, [showQrModal]);
 
     useEffect(() => {
         fetchDevices();
@@ -649,13 +801,16 @@ function DeviceManagementPage({ setActiveMenu }) {
         return () => clearInterval(interval);
     }, [fetchDevices]);
 
-    const totalSent = devices.reduce((sum, dev) => sum + dev.sentCount, 0);
-    const totalReceived = devices.reduce((sum, dev) => sum + dev.receivedCount, 0);
+    // Statistik dinamis
+    const totalSent = devices.reduce((sum, dev) => sum + (dev.sentCount || 0), 0);
+    const totalReceived = devices.reduce((sum, dev) => sum + (dev.receivedCount || 0), 0);
+    const totalConnected = devices.filter(dev => dev.isReady).length;
 
     return (
         <div className="w-full">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <StatCard title="Total Perangkat" value={devices.length} icon={<svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>} color="blue" />
+                <StatCard title="Perangkat Terhubung" value={totalConnected} icon={<svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" /><circle cx="12" cy="12" r="4" fill="currentColor" /></svg>} color="green" />
                 <StatCard title="Pesan Terkirim" value={totalSent} icon={<svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>} color="green" />
                 <StatCard title="Pesan Diterima" value={totalReceived} icon={<svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>} color="yellow" />
                 <StatCard title="Status Server" value="Online" icon={<svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"></path></svg>} color="indigo" />
@@ -665,7 +820,7 @@ function DeviceManagementPage({ setActiveMenu }) {
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-3xl font-bold text-white">Daftar Perangkat Terhubung</h2>
                     <button
-                        onClick={() => setActiveMenu('Koneksi & QR')}
+                        onClick={() => { setQrSessionId(user.id); setShowQrModal(true); setQrCode(null); }}
                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all active:scale-95"
                     >
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -674,12 +829,71 @@ function DeviceManagementPage({ setActiveMenu }) {
                         Tambah Perangkat
                     </button>
                 </div>
+                {notif && <div className={`mb-4 px-4 py-2 rounded text-white ${notif.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notif.text}</div>}
                 {loading ? <p className="text-gray-400">Memuat perangkat...</p> : (
-                    <div className="space-y-4">
-                        {devices.map(device => <DeviceCard key={device.userId} device={device} />)}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-none min-w-[700px] text-sm md:text-base">
+                            <thead>
+                                <tr className="bg-gray-800 text-gray-300 border-b border-gray-600">
+                                    <th className="px-3 py-2">No</th>
+                                    <th className="px-3 py-2">Profil</th>
+                                    <th className="px-3 py-2">Nomor WA</th>
+                                    <th className="px-3 py-2">Status</th>
+                                    <th className="px-3 py-2">Webhook</th>
+                                    <th className="px-3 py-2">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {devices.length === 0 ? (
+                                    <tr><td colSpan="6" className="text-center p-8 text-gray-400">Belum ada perangkat terhubung.</td></tr>
+                                ) : devices.map((dev, idx) => (
+                                    <tr key={dev.userId} className="border-b border-gray-700">
+                                        <td className="px-3 py-2">{idx + 1}</td>
+                                        <td className="px-3 py-2">
+                                            {dev.profilePicUrl ? <img src={dev.profilePicUrl} alt="Profil" className="w-10 h-10 rounded-full" /> : <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">?</div>}
+                                        </td>
+                                        <td className="px-3 py-2">{dev.number || '-'}</td>
+                                        <td className="px-3 py-2">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${dev.isReady ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>{dev.isReady ? 'Terhubung' : 'Terputus'}</span>
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <input type="text" className="border px-2 py-1 rounded w-44 bg-slate-800 text-white" value={(webhookEdits[dev.userId] ?? dev.webhookUrl) || ''} onChange={e => setWebhookEdits(edits => ({ ...edits, [dev.userId]: e.target.value }))} />
+                                        </td>
+                                        <td className="px-3 py-2 flex gap-2">
+                                            <button title={dev.isReady ? 'Scan Ulang QR' : 'Scan QR'} className={dev.isReady ? 'bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded flex items-center' : 'bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded flex items-center'} onClick={() => handleShowQr(dev)}>
+                                                {dev.isReady ? (
+                                                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-4.553a1.5 1.5 0 00-2.121-2.121L13 7.879M9 14l-4.553 4.553a1.5 1.5 0 002.121 2.121L11 16.121" /></svg>
+                                                ) : (
+                                                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7V5a2 2 0 012-2h2M7 3h10a2 2 0 012 2v2M21 7v10a2 2 0 01-2 2h-2m2 0v2a2 2 0 01-2 2H7a2 2 0 01-2-2v-2m0 0H5a2 2 0 01-2-2V7" /></svg>
+                                                )}
+                                                {dev.isReady ? 'Scan Ulang' : 'Scan QR'}
+                                            </button>
+                                            <button title="Hapus Perangkat" className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded flex items-center" onClick={() => handleDeleteDevice(dev)}>
+                                                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>Hapus
+                                            </button>
+                                            <button title="Simpan Webhook" className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded flex items-center" onClick={() => handleSaveWebhook(dev)}>
+                                                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>Simpan
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
+            {/* Modal QR Scan Tambah/Scan Ulang Perangkat */}
+            {showQrModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className="bg-slate-900 p-8 rounded-2xl shadow-lg w-full max-w-md text-center">
+                        <h3 className="text-lg font-bold mb-4 text-white">Scan QR untuk Menautkan Perangkat</h3>
+                        <div className="my-4 flex justify-center items-center min-h-[220px]">
+                            {qrCode ? <QRCode value={qrCode} size={200} /> : <span className="text-gray-400">Memuat QR...</span>}
+                        </div>
+                        <button className="bg-gray-500 text-white px-4 py-2 rounded hover:scale-105 transition-transform mt-4" onClick={() => setShowQrModal(false)}>Tutup</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

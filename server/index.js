@@ -145,8 +145,18 @@ app.delete('/api/users/:userId', isAdmin, (req, res) => {
 // --- API Manajemen Sesi WhatsApp ---
 const createWhatsAppSession = (sessionId) => {
     console.log(`[${sessionId}] Mencoba membuat sesi WhatsApp baru...`);
-    const client = new Client({ authStrategy: new LocalAuth({ clientId: sessionId }), puppeteer: { executablePath: puppeteer.executablePath(), args: ['--no-sandbox', '--disable-setuid-sandbox'] } });
-    
+    let client;
+    try {
+        client = new Client({
+            authStrategy: new LocalAuth({ clientId: sessionId }),
+            puppeteer: { executablePath: puppeteer.executablePath(), args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+        });
+    } catch (err) {
+        console.error(`[${sessionId}] ERROR saat membuat Client WhatsApp:`, err);
+        sessionStatus[sessionId] = { qr: null, isReady: false, message: "Gagal inisialisasi client WhatsApp.", number: '', profilePicUrl: '', connectedAt: null, disconnectedAt: null, sentCount: 0, receivedCount: 0 };
+        return;
+    }
+
     sessionStatus[sessionId] = { qr: null, isReady: false, message: "Menginisialisasi...", number: '', profilePicUrl: '', connectedAt: null, disconnectedAt: null, sentCount: 0, receivedCount: 0 };
     if (!messageLogs[sessionId]) { messageLogs[sessionId] = []; }
 
@@ -171,15 +181,15 @@ const createWhatsAppSession = (sessionId) => {
             sessionStatus[sessionId].profilePicUrl = '';
         }
     });
-    
+
     client.on('message', async msg => {
         if (sessionStatus[sessionId]) sessionStatus[sessionId].receivedCount++;
-        
+
         if (!messageLogs[sessionId]) { messageLogs[sessionId] = []; }
         const logEntry = { id: msg.id.id, sender: msg.from, message: msg.body, timestamp: new Date().toISOString() };
         messageLogs[sessionId].unshift(logEntry);
         if (messageLogs[sessionId].length > 100) { messageLogs[sessionId].pop(); }
-        
+
         const users = readUsers();
         const currentUser = users.find(u => u.id === sessionId);
         if (currentUser && currentUser.webhookUrl) {
@@ -201,9 +211,10 @@ const createWhatsAppSession = (sessionId) => {
 
     client.initialize().catch(err => {
         console.error(`[${sessionId}] Gagal inisialisasi:`, err);
-        delete sessionStatus[sessionId];
+        // Jangan langsung hapus status, biarkan frontend polling dan tampilkan pesan error
+        sessionStatus[sessionId].message = "Gagal inisialisasi WhatsApp: " + (err?.message || err);
     });
-    
+
     sessions[sessionId] = client;
 };
 
@@ -211,8 +222,13 @@ app.post('/api/sessions/init', (req, res) => {
     const { sessionId } = req.body;
     if (!sessionId) return res.status(400).json({ message: "Session ID diperlukan." });
     if (sessions[sessionId]) return res.status(200).json({ message: "Sesi sudah ada." });
-    createWhatsAppSession(sessionId);
-    res.status(201).json({ message: "Sesi sedang diinisialisasi." });
+    try {
+        createWhatsAppSession(sessionId);
+        res.status(201).json({ message: "Sesi sedang diinisialisasi." });
+    } catch (err) {
+        console.error(`[${sessionId}] ERROR saat createWhatsAppSession:`, err);
+        res.status(500).json({ message: "Gagal inisialisasi sesi WhatsApp.", error: err?.message || err });
+    }
 });
 
 app.get('/api/sessions/status/:sessionId', (req, res) => {
@@ -295,6 +311,24 @@ app.post('/api/sessions/disconnect', async (req, res) => {
     }
 });
 // --- Akhir API Sesi ---
+
+// --- API Ganti Password User Sendiri ---
+app.post('/api/users/change-password', async (req, res) => {
+    const { userId, oldPassword, newPassword } = req.body;
+    if (!userId || !oldPassword || !newPassword) {
+        return res.status(400).json({ message: 'User ID, password lama, dan password baru diperlukan.' });
+    }
+    const users = readUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    const user = users[userIndex];
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'Password lama salah.' });
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    users[userIndex].password = hashedPassword;
+    writeUsers(users);
+    res.status(200).json({ message: 'Password berhasil diubah.' });
+});
 
 // --- API Webhook ---
 app.get('/api/webhook/:userId', (req, res) => {
