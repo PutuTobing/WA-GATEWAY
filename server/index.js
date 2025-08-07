@@ -162,6 +162,7 @@ const createWhatsAppSession = (sessionId) => {
 
     client.on('qr', qr => {
         console.log(`[${sessionId}] QR DITERIMA.`);
+        console.log(`[${sessionId}] QR Data: ${qr}`); // Log data QR
         sessionStatus[sessionId].qr = qr;
         sessionStatus[sessionId].isReady = false;
         sessionStatus[sessionId].message = "Silakan pindai QR code untuk terhubung.";
@@ -169,17 +170,21 @@ const createWhatsAppSession = (sessionId) => {
 
     client.on('ready', async () => {
         console.log(`[${sessionId}] ? Bot Siap!`);
+        console.log(`[${sessionId}] Client Info:`, client.info); // Log client info
         sessionStatus[sessionId].qr = null;
         sessionStatus[sessionId].isReady = true;
         sessionStatus[sessionId].message = "Bot siap digunakan!";
         sessionStatus[sessionId].number = client.info.wid.user;
         sessionStatus[sessionId].connectedAt = new Date().toISOString();
         try {
-            sessionStatus[sessionId].profilePicUrl = await client.getProfilePicUrl(client.info.wid._serialized);
+            const profilePicUrl = await client.getProfilePicUrl(client.info.wid._serialized);
+            console.log(`[${sessionId}] Profile Pic URL:`, profilePicUrl); // Log profile pic URL
+            sessionStatus[sessionId].profilePicUrl = profilePicUrl;
         } catch (e) {
             console.error(`[${sessionId}] Gagal mengambil foto profil.`);
             sessionStatus[sessionId].profilePicUrl = '';
         }
+        console.log(`[${sessionId}] sessionStatus setelah READY:`, sessionStatus[sessionId]); // Log status setelah ready
     });
 
     client.on('message', async msg => {
@@ -203,10 +208,12 @@ const createWhatsAppSession = (sessionId) => {
 
     client.on('disconnected', (reason) => {
         console.log(`[${sessionId}] ?? Terputus! Alasan: ${reason}`);
+        console.log(`[${sessionId}] sessionStatus sebelum DISCONNECTED update:`, sessionStatus[sessionId]); // Log status sebelum update
         if (sessionStatus[sessionId]) {
             sessionStatus[sessionId].disconnectedAt = new Date().toISOString();
         }
         delete sessions[sessionId];
+        console.log(`[${sessionId}] sessionStatus setelah DISCONNECTED update:`, sessionStatus[sessionId]); // Log status setelah update
     });
 
     client.initialize().catch(err => {
@@ -262,8 +269,9 @@ app.get('/api/sessions/logs/:sessionId', (req, res) => {
 // API BARU: Mendapatkan semua sesi untuk admin
 app.get('/api/devices', isAdmin, (req, res) => {
     const allUsers = readUsers();
+    console.log('Current sessionStatus:', sessionStatus); // Log sessionStatus
+    console.log('All users:', allUsers); // Log allUsers
     const allDevices = allUsers
-        .filter(u => u.role === 'customer')
         .map(u => {
             const status = sessionStatus[u.id];
             return {

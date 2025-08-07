@@ -28,12 +28,15 @@ function DeviceManagementPage({ user, setActiveMenu }) {
     // Fetch devices for current user (admin: all, user: only their own)
     const fetchDevices = useCallback(async () => {
         try {
+            console.log('Fetching devices...'); // Log 1: Before fetching
             const res = await fetch(`${BACKEND_URL}/api/devices`, {
                 headers: { 'x-user-role': user?.role || '' }
             });
             const data = await res.json();
+            console.log('Data received:', data); // Log 2: After receiving data
             if (res.ok) {
                 setDevices(user?.role === 'admin' ? data : data.filter(d => d.userId === user.id));
+                // Log 3: After updating state - Note: state update is async, this might log the previous state immediately after setDevices call
             }
         } catch (err) {
             setNotif({ type: 'error', text: 'Gagal memuat perangkat.' });
@@ -118,6 +121,7 @@ function DeviceManagementPage({ user, setActiveMenu }) {
                 if (data.isReady) {
                     setShowQrModal(false);
                     setQrLoading(false);
+                    fetchDevices(); // Refresh list immediately after device is ready
                     return;
                 }
                 tries++;
