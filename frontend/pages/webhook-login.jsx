@@ -138,7 +138,7 @@ export default function WebhookLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-3 pl-10 pr-10 text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="••••••••"
+                  placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                   required
                 />
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -213,8 +213,8 @@ export default function WebhookLogin() {
           variants={itemVariants}
           className="mt-8 text-center text-xs text-gray-600"
         >
-          Webhook Management v1.0 • {new Date().getFullYear()}
-        </motion.div>
+          Webhook Management v1.0 ï¿½ {new Date().getFullYear()}
+        </motion.div> 
       </motion.div>
     </div>
   );

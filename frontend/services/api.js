@@ -138,6 +138,32 @@ export const updateUserRole = async (userId, newRole) => {
     }
 };
 
+/**
+ * Mengubah kata sandi pengguna yang sedang login.
+ * @param {string} currentPassword - Kata sandi pengguna saat ini.
+ * @param {string} newPassword - Kata sandi baru yang diinginkan.
+ * @returns {Promise<Object>} Mengembalikan objek respons dari server (placeholder).
+ */
+export const changeMyPassword = async (currentPassword, newPassword) => {
+    // Placeholder: Ganti dengan panggilan API aktual ke backend Anda
+    console.log(`Simulating password change for current user. Current: ${currentPassword}, New: ${newPassword}`);
+    return Promise.resolve({ success: true, message: 'Kata sandi berhasil diubah (simulasi).' });
+};
+
+/**
+ * Mengambil log aktivitas untuk pengguna tertentu atau pengguna yang sedang login.
+ * @param {string} userId - ID pengguna (opsional). Jika tidak disediakan, ambil log pengguna yang sedang login.
+ * @returns {Promise<Array>} Sebuah promise yang akan resolve menjadi array objek log aktivitas (placeholder).
+ */
+export const getActivityLogs = async (userId) => {
+    // Placeholder: Ganti dengan panggilan API aktual ke backend Anda
+    console.log(`Simulating fetching activity logs for user ID: ${userId || 'current user'}`);
+    return Promise.resolve([
+        { id: 1, activity: 'Login', timestamp: '2023-10-27T10:00:00Z', details: 'User logged in' },
+        { id: 2, activity: 'Update Profile', timestamp: '2023-10-27T10:30:00Z', details: 'User updated profile information' },
+    ]);
+};
+
 // --- FUNGSI UNTUK DASBOR & PERANGKAT ---
 
 export const getDevices = async () => {
