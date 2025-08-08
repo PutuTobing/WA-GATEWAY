@@ -17,6 +17,7 @@ require('dotenv').config();
 
 // --- Path Konfigurasi ---
 const usersDbPath = path.join(__dirname, 'users.json');
+const sessionStatusPath = path.join(__dirname, 'sessionStatus.json'); // Define path for sessionStatus.json
 
 // --- Fungsi Bantuan ---
 const readUsers = () => {
@@ -37,7 +38,28 @@ try {
 // --- Manajemen Sesi & Statistik ---
 const sessions = {};
 const sessionStatus = {};
+
+const readSessionStatus = async () => {
+    if (!fs.existsSync(sessionStatusPath)) return {};
+    try {
+        const data = await fs.promises.readFile(sessionStatusPath, 'utf8');
+        return JSON.parse(data);
+    } catch (err) {
+        console.error(`[READ_SESSION_STATUS] Error reading ${sessionStatusPath}:`, err);
+        return {};
+    }
+};
+
+const writeSessionStatus = async (data) => {
+    try {
+        await fs.promises.writeFile(sessionStatusPath, JSON.stringify(data, null, 2), 'utf8');
+        console.log(`[WRITE_SESSION_STATUS] Successfully wrote ${sessionStatusPath}`);
+    } catch (err) {
+        console.error(`[WRITE_SESSION_STATUS] Error writing ${sessionStatusPath}:`, err);
+    }
+};
 const messageLogs = {};
+
 
 // --- Setup Aplikasi Express ---
 const app = express();
@@ -132,15 +154,48 @@ app.post('/api/users/reset-password', isAdmin, async (req, res) => {
     writeUsers(users);
     res.status(200).json({ message: `Password untuk ${users[userIndex].username} telah direset.` });
 });
+
+// Endpoint untuk menghapus AKUN pengguna
 app.delete('/api/users/:userId', isAdmin, (req, res) => {
-    const { userId } = req.params;
+ const { userId } = req.params; // Declare userId here
+
+ console.log('[DELETE /api/users/:userId] called with userId:', userId); // Log userId received
     let users = readUsers();
+ console.log('Users before filter:', users); // Log users before filter
     const initialLength = users.length;
     users = users.filter(u => u.id !== userId);
-    if (users.length === initialLength) return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
-    writeUsers(users);
-    res.status(200).json({ message: 'Pengguna berhasil dihapus.' });
+ console.log('Users after filter:', users); // Log users after filter
+    if (users.length === initialLength) {
+ return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    }
+ console.log('Writing updated users to file.'); // Log before writing
+ writeUsers(users);
+ console.log('Finished writing users file.'); // Log after writing
+ res.status(200).json({ message: 'Pengguna berhasil dihapus.' });
 });
+
+// API BARU: Menghapus sesi perangkat WhatsApp
+app.delete('/api/sessions/:sessionId', async (req, res) => {
+    const { sessionId } = req.params;
+    if (!sessionId) {
+        return res.status(400).json({ message: 'Session ID diperlukan.' });
+    }
+    console.log(`[DELETE /api/sessions/${sessionId}] called`);
+
+    if (sessions[sessionId]) {
+        try {
+            await sessions[sessionId].logout(); // Disconnect and clear auth files
+            console.log(`[DELETE /api/sessions/${sessionId}] Session logged out.`);
+        } catch (err) {
+            console.error(`[DELETE /api/sessions/${sessionId}] Error during logout:`, err);
+        }
+        delete sessions[sessionId]; // Remove from memory
+    }
+    delete sessionStatus[sessionId]; // Remove status from memory
+    await writeSessionStatus(sessionStatus); // Persist updated status
+    res.status(200).json({ message: 'Sesi berhasil dihapus.' });
+});
+
 
 // --- API Manajemen Sesi WhatsApp ---
 const createWhatsAppSession = (sessionId) => {
@@ -157,12 +212,14 @@ const createWhatsAppSession = (sessionId) => {
         return;
     }
 
+    // Initialize status for this session
     sessionStatus[sessionId] = { qr: null, isReady: false, message: "Menginisialisasi...", number: '', profilePicUrl: '', connectedAt: null, disconnectedAt: null, sentCount: 0, receivedCount: 0 };
     if (!messageLogs[sessionId]) { messageLogs[sessionId] = []; }
 
     client.on('qr', qr => {
         console.log(`[${sessionId}] QR DITERIMA.`);
         console.log(`[${sessionId}] QR Data: ${qr}`); // Log data QR
+        // Update status and persist
         sessionStatus[sessionId].qr = qr;
         sessionStatus[sessionId].isReady = false;
         sessionStatus[sessionId].message = "Silakan pindai QR code untuk terhubung.";
@@ -171,6 +228,7 @@ const createWhatsAppSession = (sessionId) => {
     client.on('ready', async () => {
         console.log(`[${sessionId}] ? Bot Siap!`);
         console.log(`[${sessionId}] Client Info:`, client.info); // Log client info
+        // Update status with ready info and persist
         sessionStatus[sessionId].qr = null;
         sessionStatus[sessionId].isReady = true;
         sessionStatus[sessionId].message = "Bot siap digunakan!";
@@ -184,6 +242,7 @@ const createWhatsAppSession = (sessionId) => {
             console.error(`[${sessionId}] Gagal mengambil foto profil.`);
             sessionStatus[sessionId].profilePicUrl = '';
         }
+        writeSessionStatus(sessionStatus); // Persist status after ready
         console.log(`[${sessionId}] sessionStatus setelah READY:`, sessionStatus[sessionId]); // Log status setelah ready
     });
 
@@ -208,12 +267,14 @@ const createWhatsAppSession = (sessionId) => {
 
     client.on('disconnected', (reason) => {
         console.log(`[${sessionId}] ?? Terputus! Alasan: ${reason}`);
-        console.log(`[${sessionId}] sessionStatus sebelum DISCONNECTED update:`, sessionStatus[sessionId]); // Log status sebelum update
+        // Update status with disconnected info and persist
         if (sessionStatus[sessionId]) {
             sessionStatus[sessionId].disconnectedAt = new Date().toISOString();
+            sessionStatus[sessionId].isReady = false; // Set isReady to false on disconnect
         }
         delete sessions[sessionId];
-        console.log(`[${sessionId}] sessionStatus setelah DISCONNECTED update:`, sessionStatus[sessionId]); // Log status setelah update
+        writeSessionStatus(sessionStatus); // Persist status after disconnected
+        console.log(`[${sessionId}] sessionStatus setelah DISCONNECTED update:`, sessionStatus[sessionId]); // Log status after update
     });
 
     client.initialize().catch(err => {
@@ -241,6 +302,7 @@ app.post('/api/sessions/init', (req, res) => {
 app.get('/api/sessions/status/:sessionId', (req, res) => {
     const { sessionId } = req.params;
     const status = sessionStatus[sessionId];
+    console.log(`[GET /api/sessions/status/${sessionId}] Returning status:`, status); // Log status being returned
     if (status) res.status(200).json(status);
     else res.status(404).json({ qr: null, isReady: false, message: "Sesi tidak aktif." });
 });
@@ -254,6 +316,7 @@ app.post('/api/sessions/send', async (req, res) => {
     try {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
         await client.sendMessage(formattedNumber, message);
+        // Update sent count and persist
         if (sessionStatus[sessionId]) sessionStatus[sessionId].sentCount++;
         res.status(200).json({ success: true, message: "Pesan berhasil dikirim." });
     } catch (e) {
@@ -269,24 +332,32 @@ app.get('/api/sessions/logs/:sessionId', (req, res) => {
 // API BARU: Mendapatkan semua sesi untuk admin
 app.get('/api/devices', isAdmin, (req, res) => {
     const allUsers = readUsers();
+    const requestingUserRole = req.headers['x-user-role']; // Get requesting user's role
+    const requestingUserId = req.headers['x-user-id']; // Assuming you pass user ID in headers too
+
     console.log('Current sessionStatus:', sessionStatus); // Log sessionStatus
     console.log('All users:', allUsers); // Log allUsers
-    const allDevices = allUsers
-        .map(u => {
-            const status = sessionStatus[u.id];
+
+    const allDevices = [];
+
+    // Iterate through sessionStatus to collect device data
+    for (const userId in sessionStatus) {
+        // If not admin and not the requesting user's sessions, skip
+        if (requestingUserRole !== 'admin' && userId !== requestingUserId) {
+            continue;
+        }
+        const sessionsForUser = sessionStatus[userId];
+        for (const sessionId in sessionsForUser) {
+            const status = sessionsForUser[sessionId];
             return {
-                userId: u.id,
-                username: u.username,
-                number: status ? status.number : 'N/A',
-                isReady: status ? status.isReady : false,
-                profilePicUrl: status ? status.profilePicUrl : '',
-                connectedAt: status ? status.connectedAt : null,
-                disconnectedAt: status ? status.disconnectedAt : null,
-                sentCount: status ? status.sentCount : 0,
-                receivedCount: status ? status.receivedCount : 0,
-                webhookUrl: u.webhookUrl || ''
+                userId: userId,
+                sessionId: sessionId,
+                // Include all properties from status object
+                ...status,
             };
-        });
+        }
+    }
+
     res.status(200).json(allDevices);
 });
 
@@ -304,10 +375,12 @@ app.post('/api/sessions/disconnect', async (req, res) => {
             if (userIndex !== -1) {
                 users[userIndex].status = 'stopped';
                 writeUsers(users);
+                 // Also remove session status from memory and persist
+                delete sessionStatus[sessionId];
+                writeSessionStatus(sessionStatus);
             }
             res.status(200).json({ message: "Sesi berhasil diputuskan." });
         } catch (e) {
-            res.status(500).json({ message: "Gagal memutuskan sesi." });
         }
     } else {
         // Jika tidak ada sesi, tetap update status di database
@@ -361,7 +434,10 @@ app.post('/api/webhook', (req, res) => {
 });
 
 // --- Jalankan Server ---
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-    console.log(`?? Server backend v${SCRIPT_VERSION} berjalan di http://172.16.31.14:${PORT}`);
-});
+const startServer = async () => {
+    Object.assign(sessionStatus, await readSessionStatus()); // Load initial status on startup
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+        console.log(`?? Server backend v${SCRIPT_VERSION} berjalan di http://172.16.31.14:${PORT}`);
+    });
+}; startServer(); // Call the async function to start the server

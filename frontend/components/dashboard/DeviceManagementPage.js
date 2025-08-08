@@ -29,6 +29,7 @@ function DeviceManagementPage({ user, setActiveMenu }) {
     const fetchDevices = useCallback(async () => {
         try {
             console.log('Fetching devices...'); // Log 1: Before fetching
+            console.log('Fetching devices...'); // Log 1: Before fetching
             const res = await fetch(`${BACKEND_URL}/api/devices`, {
                 headers: { 'x-user-role': user?.role || '' }
             });
@@ -39,9 +40,12 @@ function DeviceManagementPage({ user, setActiveMenu }) {
                 // Log 3: After updating state - Note: state update is async, this might log the previous state immediately after setDevices call
             }
         } catch (err) {
+            console.error('Error fetching devices:', err); // Add this line
             setNotif({ type: 'error', text: 'Gagal memuat perangkat.' });
         } finally {
             setLoading(false);
+            console.log('Setting loading to false.'); // Log 4: In finally block
+
         }
     }, [user]);
 
@@ -67,14 +71,15 @@ function DeviceManagementPage({ user, setActiveMenu }) {
     const handleDeleteDevice = async (device) => {
         if (!window.confirm('Yakin ingin menghapus perangkat ini?')) return;
         try {
-            const res = await fetch(`${BACKEND_URL}/api/users/${device.userId}`, {
-                method: 'DELETE',
-                headers: { 'x-user-role': user?.role || '' }
+            console.log('Deleting session for userId:', device.userId);
+            const res = await fetch(`${BACKEND_URL}/api/sessions/${device.userId}`, {
+                method: 'DELETE'
             });
             const data = await res.json();
             setNotif({ type: res.ok ? 'success' : 'error', text: data.message });
             fetchDevices();
         } catch (e) {
+            console.error('Error deleting session:', e);
             setNotif({ type: 'error', text: 'Gagal menghapus perangkat.' });
         }
         setTimeout(() => setNotif(null), 2000);
@@ -210,7 +215,7 @@ function DeviceManagementPage({ user, setActiveMenu }) {
                                 {devices.length === 0 ? (
                                     <tr><td colSpan="6" className="text-center p-8 text-gray-400">Belum ada perangkat terhubung.</td></tr>
                                 ) : devices.map((dev, idx) => (
-                                    <tr key={dev.userId} className="border-b border-gray-700">
+                                    <tr key={dev.sessionId} className="border-b border-gray-700">
                                         <td className="px-3 py-2">{idx + 1}</td>
                                         <td className="px-3 py-2">
                                             {dev.profilePicUrl ? <img src={dev.profilePicUrl} alt="Profil" className="w-10 h-10 rounded-full" /> : <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">?</div>}
@@ -221,7 +226,7 @@ function DeviceManagementPage({ user, setActiveMenu }) {
                                         </td>
                                         <td className="px-3 py-2">
                                             <input type="text" className="border px-2 py-1 rounded w-44 bg-slate-800 text-white" value={(webhookEdits[dev.userId] ?? dev.webhookUrl) || ''} onChange={e => setWebhookEdits(edits => ({ ...edits, [dev.userId]: e.target.value }))} />
-                                        </td>
+                                        </td> {/* TODO: Change webhookEdits key to dev.sessionId */}
                                         <td className="px-3 py-2 flex gap-2">
                                             <button title={dev.isReady ? 'Scan Ulang QR' : 'Scan QR'} className={dev.isReady ? 'bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded flex items-center' : 'bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded flex items-center'} onClick={() => handleAddDeviceQr()}>
                                                 {dev.isReady ? (
